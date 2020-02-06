@@ -1,12 +1,16 @@
 ;;;; ex-lexicon.asd
 
 (asdf:defsystem #:ex-lexicon
-  :description "Describe ex-lexicon here"
-  :author "Your Name <your.name@example.com>"
-  :license  "Specify license here"
+  :description "Ex-Lexicon: A conlanger dictionary tool."
+  :author "Peter Keller <psilord@cs.wisc.edu>"
+  :license  "MIT License"
   :version "0.0.1"
   :serial t
   :depends-on (#:alexandria)
   :components ((:file "package")
-               (:file "dict")
-               (:file "ex-lexicon")))
+	       (:file "utils")
+               (:file "ex-lexicon")
+	       ;; TODO: Put language definitions here.
+	       ;; Actual dictionaries must come last.
+	       (:file "dicts/kilta")
+	       ))
