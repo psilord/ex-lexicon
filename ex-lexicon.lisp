@@ -45,17 +45,20 @@
   (let ((result nil)
         (len (length lexeme)))
     (flet ((digraph-p (pos)
-             (let* ((digraph-db '("CH" "Ch" "cH" "ch"
-                                  "HW" "Hw" "hW" "hw"
-                                  "KW" "Kw" "kW" "kw"))
+             (let* ((digraph-db '("ch" "hw" "kw"))
                     (next-pos (1+ pos))
                     (next-pos-p (< next-pos len)))
+               ;; NOTE: Lookup the lowercase, but return the actually found
+               ;; digraph.  This preserves case in the string.
                (when next-pos-p
-                 ;; TODO: Jam string-downcase in here and change #"string=
-                 ;; to #'equalp. Then I can fix the digraph-db to only have
-                 ;; the lowercase values in it.
-                 (first (member (subseq lexeme pos (1+ next-pos))
-                                digraph-db :test #'string=))))))
+                 (let* ((digraph (subseq lexeme pos (1+ next-pos)))
+                        (found-p
+                          (member digraph digraph-db
+                                  :test (lambda (left right)
+                                          (string=
+                                           (string-downcase left)
+                                           (string-downcase right))))))
+                   (when found-p digraph))))))
       (loop :for i :below len
             :for digraph = (digraph-p i)
             :do (cond
