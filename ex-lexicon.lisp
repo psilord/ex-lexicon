@@ -867,7 +867,24 @@ names). Return the list."
 
               )))
 
-         (test-pass0
+         (passes (list canon-pass))
+
+         (result nil))
+
+    ;; Each pass applied is basically reordering, or subtractive.
+    ;; TODO: Add in command renaming, but do I need it?
+    (loop :for pass :in passes
+          :do (setf result (mappass t entry pass nil)))
+
+    result))
+
+
+;; New attempt.
+
+(defun doit4 (&optional (lexeme "á"))
+  (let* ((entry (getf (gethash lexeme *db*) :body))
+         (canon-pass
+           ;; make-new-reshape-pass
            '(
              ;;-----------------------------
              :define-reshape-fixed-args-defaults
@@ -882,16 +899,17 @@ names). Return the list."
              ;; 'dname' is a disambiguating name for the group name and subforms
              ;; 'group-name' is the actual symbol found in the dict dsl.
              ;; 'subform-name' are the actual symbol in the dict dsl subforms.
-             (;; :identity means don't disturb the number, layout, ordering, or
-              ;; anything else about the subforms in the group.
-              ;;
-              ;; Also, these are the "ground forms" in the dict dsl in that
-              ;; we don't want to reshape anything about the inside of these
-              ;; forms. They are basically the dict dsl leaf forms.
-              ;;
-              ;;
-              ;; NOTE: Support :or forms in subform list of groups
-              (:group lexeme lexeme (:identity))
+
+             ;; :identity means don't disturb the number, layout, ordering, or
+             ;; anything else about the subforms in the group.
+             ;;
+             ;; Also, these are the "ground forms" in the dict dsl in that
+             ;; we don't want to reshape anything about the inside of these
+             ;; forms. They are basically the dict dsl leaf forms.
+             ;;
+             ;;
+             ;; NOTE: (MAYBE) Support :or forms in subform list of groups
+             ((:group lexeme lexeme (:identity))
               (:group v v (:identity))
               (:group e e (:identity))
               (:group r r (:identity))
@@ -1020,13 +1038,9 @@ names). Return the list."
                :keep-order :todo)
 
               )))
-
-
          (passes (list canon-pass))
 
          (result nil))
-
-    (declare (ignore test-pass0))
 
     ;; Each pass applied is basically reordering, or subtractive.
     ;; TODO: Add in command renaming, but do I need it?
