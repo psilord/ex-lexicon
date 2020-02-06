@@ -8,4 +8,5 @@
   :serial t
   :depends-on (#:alexandria)
   :components ((:file "package")
+               (:file "dict")
                (:file "ex-lexicon")))
