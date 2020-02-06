@@ -1022,115 +1022,11 @@ names). Return the list."
               )))
 
 
-
-         ;; More of a grammar definition, but sorta sucks in a way for grouping
-         ;; and coalescing forms together. Harder to write for average people
-         ;; too.
-         (test-pass1
-           ;; Right recursive grammar only
-           '((entry
-              -> ('entry lexeme homonyms :unspecified))
-             (lexeme
-              -> ('lexeme :string))
-
-             ;; left recursive
-             (homonyms :group-as 'homonyms
-              -> ('homonyms homonyms)
-              -> homonym homonyms
-              -> homonym)
-
-             ;; right recursive of the above. not quite, look in dragon book.
-             (homonyms-group
-              -> ('homonyms homonyms) homonyms-group
-              -> homonym homonyms-group
-              -> homonym)
-             (homonyms
-              -> homonym homonyms)
-
-
-             (homonym :group-as 'homonym
-              ;; should I have the -> ('homonym headers.....) too?
-              -> headers senses sublems sees :unspecified)
-
-             (headers :group-as 'headers
-              -> etymology morphology pronounciation)
-
-             (etymology
-              -> ('etymology strcats)
-              -> nil)
-
-             (morphology
-              -> ('morphology strcats)
-              -> nil)
-
-             (pronounciation
-              -> ('pronounciation strcats)
-              -> nil)
-
-             (senses :group-as 'senses
-              -> sense senses
-              -> sense)
-             (sense
-              -> ('sense label pos gloss definition usage examples sees
-                  :unspecified))
-             (label
-              -> ('label :string)
-              -> nil)
-             (pos
-              -> ('pos strcats))
-             (gloss
-              -> ('gloss strcats))
-             (definition
-              -> ('definition strcats))
-             (usage
-              -> ('usage strcats))
-             (examples :group-as 'examples
-              -> example examples
-              -> example)
-             (example
-              -> ('example strcats))
-             (sublems :group-as 'sublmes
-              -> sublem sublems
-              -> sublem)
-             (sublem
-              -> :string senses)
-             (sees :group-as 'sees
-              -> see sees
-              -> see)
-             (see
-              -> ('see strcats))
-             (strcats
-              -> v strcats
-              -> v
-              -> e strcats
-              -> e
-              -> r strcats
-              -> r
-              -> n strcats
-              -> n
-              -> :unspecified strcats
-              -> :unspecified)
-             (v
-              -> ('v string-list))
-             (e
-              -> ('e string-list))
-             (r
-              -> ('r string-list))
-             (n
-              -> ('n string-list))
-             (string-list
-              -> :string string-list
-              -> :string)
-
-
-             ))
-
-
          (passes (list canon-pass))
 
          (result nil))
 
-    (declare (ignore test-pass0 test-pass1))
+    (declare (ignore test-pass0))
 
     ;; Each pass applied is basically reordering, or subtractive.
     ;; TODO: Add in command renaming, but do I need it?

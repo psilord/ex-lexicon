@@ -107,6 +107,8 @@
 ;; do naho, micha, latëmo, luëta, lur
 ;;;;
 
+
+
 (deflex "hollo" ()
   (sense (pos (e "v.tr"))
          (gloss (e "adapt (to)"))
@@ -156,89 +158,3 @@
                  (definition (e "deal with, cope with"))
                  (example (v "ël si tërë së hollët nahat harno më")
                           (e "I can't deal with her right now")))))
-
-
-
-
-
-
-
-
-(deflex "junk" ()
-  (morphology (e "slfkdlsdkjf"))
-  (see (e "ijoijoij"))
-  (sense
-   (pos (e "n"))
-   (definition (e "thing")))
-  (senses
-   (sense
-    (pos (e "v.tr"))
-    (definition (e "stuff") (v "fff"))
-    (usage (e "poop"))
-    (example (v "dlsjsdlfjsdlkjf")
-             (e (strcat (e "lsdkjfsldkjflskdjf ") (v "li ") (e "stuff"))))
-    (example (v "lskdjfsdlkfj")
-             (e "sldkjldksfj"))))
-  (sense
-   (pos (e "n"))
-   (definition (e "other thing"))
-   (see (e "lasnsljn")))
-  (sublem "froggy"
-          (sense
-           (pos (e "adj"))
-           (gloss (e "lsjkdf"))
-           (definition (e "sljndc"))))
-  (sublem "pkpok"
-          (sense
-           (pos (e "interj"))
-           (gloss (e "lsjkdf"))
-           (definition (e "sljndc"))))
-  (sublems
-   (sublem "sldhfjsdlfj"
-           (sense
-            (pos (e "pro"))
-            (definition (e "lsdnlsdnclsdknc"))))))
-
-
-(deflex "junk2" ()
-
-  (wumpscut "hello" "world")
-  (froboz "thingy" (e "stuff"))
-
-  (pronounciation (ipa "shirt"))
-  (etymology (e "shoes"))
-  (senses
-   (sense
-    (pos (e "ppp")
-         (gloss (e "ooo")))))
-  (sense (pos (e "xxx")) (gloss (e "bbb")))
-  (thingy "xfff")
-  (sublem "junk2ish"
-          (sense
-           (label :xxx)
-           (pos (e "n"))
-           (gloss (e "foo"))
-           (definition (e "foo, no really")))))
-
-(deflex "junk3" ()
-  (homonym
-   (pronounciation (ipa "shirt"))
-   (etymology (e "shoes"))
-   (senses
-    (sense
-     (pos (e "ppp")
-          (gloss (e "ooo")))))
-   (sense (pos (e "xxx")) (gloss (e "bbb")))
-   (thingy "xfff")
-   (sublem "junk2ish"
-           (sense
-            (label :xxx)
-            (pos (e "n"))
-            (gloss (e "foo"))
-            (definition (e "foo, no really")))))
-
-  (homonym
-   (etymology (e "hats"))
-   (sense
-    (pos (e "LLL")
-         (definition (e "MMM"))))))
