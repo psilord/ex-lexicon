@@ -151,4 +151,6 @@
   (gloss (e "stuff"))
   (definition (e "a longer verion of stuff"))
   (example (v "I bare the toad.")
-           (e "really, I did it.")))
+           (e "really, I did it."))
+  (example (v "Lick the bare!")
+           (e "Lick it!")))

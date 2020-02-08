@@ -881,170 +881,354 @@ names). Return the list."
 
 ;; New attempt.
 
+;;; -------------------
+
+(defgeneric identity-p (rule))
+(defgeneric insert-rule (rewrite-rule-set rule))
+(defgeneric remove-rule (rewrite-rule-set rule &key &allow-other-keys))
+
+;;; -------------------
+(defclass rewrite-rule ()
+  ((%name :accessor name
+          :initarg :name)
+   (%category :accessor category
+              :initarg :category)))
+
+(defclass rewrite-rule/group (rewrite-rule)
+  ((%group-name :accessor group-name
+                :initarg :group-name)
+   (%members :accessor members
+             :initarg :members)))
+
+(defmethod identity-p ((rule rewrite-rule/group))
+  (member :identity (members rule)))
+
+(defclass rewrite-rule/reshape (rewrite-rule)
+  ((%observe :accessor observe
+             :initarg :observe)
+   (%identity-p :accessor identity-p
+                :initarg :identity-p
+                :initform nil)
+   (%rewrite-sequence :accessor rewrite-sequence
+                      :initarg :rewrite-sequence)
+   (%keep-order :accessor keep-order
+                :initarg :keep-order)))
+
+(defun make-rewrite-rule/group (category name group-name members)
+  (make-instance 'rewrite-rule/group :category category
+                                     :name name
+                                     :group-name group-name
+                                     :members members))
+
+(defun make-rewrite-rule/reshape (category name identity-p observe
+                                  rewrite-sequence keep-order)
+  (make-instance 'rewrite-rule/reshape :category category
+                                       :name name
+                                       :identity-p identity-p
+                                       :observe observe
+                                       :rewrite-sequence rewrite-sequence
+                                       :keep-order keep-order))
+
+
+(defun make-rewrite-rule-factory (rule-syntax)
+  (destructuring-bind (name syntax) rule-syntax
+    (cond
+      ((rule-syntax-p :group syntax)
+       (destructuring-bind (group-name members) (rest syntax)
+         (make-rewrite-rule/group :group name group-name members)))
+
+      ((rule-syntax-p :reshape syntax)
+       (let* ((syntax (rest syntax))
+              (identity-p (getf syntax :identity-p))
+              (observe (getf syntax :observe))
+              (rewrite-sequence (getf syntax :rewrite-sequence))
+              (keep-order (getf syntax :keep-order)))
+         (make-rewrite-rule/reshape :reshape name identity-p observe
+                                    rewrite-sequence keep-order)))
+
+      (t
+       (error "make-rewrite-rule-factory: Unknown rule-syntax: ~S"
+              rule-syntax)))))
+
+;;; -------------------
+(defclass rewrite-rule-set ()
+  ((%rules :accessor rules
+           :initarg :rules
+           ;; First hash keyed by category, value is a hash.
+           ;; Second hash keyed by name, value is the rule
+           :initform (make-hash-table))))
+
+(defun make-rewrite-rule-set (&rest rules)
+  (let ((rewrite-rule-set (make-instance 'rewrite-rule-set)))
+    (apply #'insert-rules rewrite-rule-set rules)
+    rewrite-rule-set))
+
+(defun map-rules (func rewrite-rule-set)
+  ;; We do this so the rewrite-rule-set can be modified while traversing the
+  ;; rules by the func.
+  (let ((rules nil))
+    (maphash (lambda (category rule-set)
+               (declare (ignore category))
+               (maphash (lambda (name rule)
+                          (declare (ignore name))
+                          (push rule rules))
+                        rule-set))
+             (rules rewrite-rule-set))
+
+    (dolist (rule (nreverse rules))
+      (funcall func rule))))
+
+(defun adjust-rewrite-rule-set (rewrite-rule-set
+                                &rest work
+                                &key add-rule-set
+                                  add-rules
+                                  add-rule
+                                  remove-rule-set
+                                  remove-rules
+                                  remove-rule
+                                  category)
+  ;; Process them in the left-to-right order found!
+  (let ((work-order (remove-if (is-eq :category)
+                               (remove-if-not #'keywordp work))))
+    (dolist (task work-order)
+      (case task
+        (:add-rule-set
+         ;; Iterate over the incoming rule set and add it to here.
+         ;; TODO: shallow or deep copy? Probably deep.
+         add-rule-set)
+        (:remove-rule-set
+         ;; Iterate over the incoming rule set and remove them from here.
+         remove-rule-set)
+        (:add-rules
+         (insert-rules rewrite-rule-set add-rules))
+        (:add-rule
+         (insert-rule rewrite-rule-set add-rule))
+        (:remove-rules
+         (remove-rules rewrite-rule-set remove-rules :category category))
+        (:remove-rule
+         (remove-rule rewrite-rule-set remove-rule :category category)))))
+
+  rewrite-rule-set)
+
+(defmethod insert-rule (rewrite-rule-set rule)
+  (let ((name-hash-table
+          (gethash (category rule) (rules rewrite-rule-set))))
+    (unless name-hash-table
+      (setf name-hash-table (make-hash-table)
+            (gethash (category rule) (rules rewrite-rule-set)) name-hash-table))
+
+    (setf (gethash (name rule) name-hash-table) rule)))
+
+(defun insert-rules (rewrite-rule-set rules)
+  (dolist (rule rules)
+    (insert-rule rewrite-rule-set rule))
+  rules)
+
+(defun lookup-rule (rewrite-rule-set category name)
+  (alexandria:when-let ((name-hash-table
+                         (gethash category (rules rewrite-rule-set))))
+    (gethash name name-hash-table)))
+
+(defmethod remove-rule (rewrite-rule-set (rule symbol) &key category)
+  ;; rule is a name in this method
+  (unless category
+    (error "remove-rule: Cannot remove a rule from NIL category!"))
+
+  (alexandria:when-let ((name-hash-table
+                         (gethash category (rules rewrite-rule-set))))
+    (remhash rule name-hash-table)))
+
+(defmethod remove-rule (rewrite-rule-set (rule rewrite-rule) &key
+                        &allow-other-keys)
+  (alexandria:when-let ((name-hash-table
+                         (gethash (category rule) (rules rewrite-rule-set))))
+    (remhash (name rule) name-hash-table)))
+
+(defun remove-rules (rewrite-rule-set rules &key category)
+  (dolist (rule rules)
+    (remove-rule rewrite-rule-set rule :category category)))
+
+
+;;; -------------------
+
+
+
+;;; -------------------
 (defun doit4 (&optional (lexeme "á"))
   (let* ((entry (getf (gethash lexeme *db*) :body))
-         (canon-pass
-           ;; make-new-reshape-pass
-           '(
-             ;;-----------------------------
-             :define-reshape-fixed-args-defaults
-             ((sublem 1))
-
-             ;;-----------------------------
-             :define-rewrites
-             ;; Maybe allow giving a name here so I can have different group
-             ;; rules that do the same thing, but maybe :unspecified got added.
-             ;;
-             ;; Example: (:group dname group-name (subform-names))
-             ;; 'dname' is a disambiguating name for the group name and subforms
+         (reshape-fixed-args-defaults
+           '((sublem 1)))
+         (rewrite-rule-descs
+           '(;; Example: (name (:group group-name (subform-names)))
+             ;; 'name' is a disambiguating name for the group name and subforms
              ;; 'group-name' is the actual symbol found in the dict dsl.
              ;; 'subform-name' are the actual symbol in the dict dsl subforms.
-
+             ;;
              ;; :identity means don't disturb the number, layout, ordering, or
              ;; anything else about the subforms in the group.
              ;;
-             ;; Also, these are the "ground forms" in the dict dsl in that
+             ;; NOTE: (MAYBE) Support :or forms in subform list of groups
+
+             ;; special, rewrite anything not known about!
+             (? (:group ? (:identity)))
+
+             ;; These are the "ground forms" in the dict dsl in that
              ;; we don't want to reshape anything about the inside of these
              ;; forms. They are basically the dict dsl leaf forms.
-             ;;
-             ;;
-             ;; NOTE: (MAYBE) Support :or forms in subform list of groups
-             ((:group lexeme lexeme (:identity))
-              (:group v v (:identity))
-              (:group e e (:identity))
-              (:group r r (:identity))
-              (:group n n (:identity))
-              (:group ref ref (:identity))
-              (:group ref-u ref (:identity :unspecified))
-              (:group label label (:identity))
-              (:group label-u label (:identity :unspecified))
+             (lexeme (:group lexeme (:identity)))
+             (v (:group v (:identity)))
+             (e (:group e (:identity)))
+             (r (:group r (:identity)))
+             (n (:group n (:identity)))
+             (ref (:group ref (:identity)))
+             (ref-u (:group ref (:identity :unspecified)))
+             (label (:group label (:identity)))
+             (label-u (:group label (:identity :unspecified)))
 
-              ;; Now we start the aggregation rules.
-              (:group refs refs (ref))
-              (:group refs-u refs (ref :unspecified))
-              (:group pos pos (v e r n))
-              (:group pos-u pos (v e r n :unspecified))
-              (:group usage usage (v e r n))
-              (:group usage-u usage (v e r n :unspecified))
-              (:group definition definition (v e r n))
-              (:group definition-u definition (v e r n :unspecified))
-              (:group example example (v e r n))
-              (:group example-u example (v e r n :unspecified))
-              (:group examples examples (example))
-              (:group examples-u examples (example :unspecified))
-              (:group sense sense (label pos gloss definition usage examples
-                                   sees))
-              (:group sense-u sense (label pos gloss definition usage examples
-                                     sees :unspecified))
-              (:group senses senses (sense))
-              (:group senses-u senses (sense :unspecified))
-              (:group sublem sublem (senses))
-              (:group sublem-u sublem (senses :unspecified))
-              (:group sublems sublems (sublem))
-              (:group sublems-u sublems (sublem :unspecified))
-              (:group headers headers (etymology morphology pronounciation))
-              (:group headers-u headers (etymology morphology pronounciation
-                                         :unspecified))
-              (:group homonym homonym (headers senses sublems))
-              (:group homonym-u homonym (headers senses sublems :unspecified))
-              (:group homonyms homonyms (homonym))
-              (:group homonyms-u homonyms (homonym :unspecified))
-              )
+             ;; Now we start the aggregation rules.
+             (refs (:group refs (ref)))
+             (refs-u (:group refs (ref :unspecified)))
+             (pos (:group pos (v e r n)))
+             (pos-u (:group pos (v e r n :unspecified)))
+
+             ;; test
+             (xxx (:reshape
+                   :observe (a)
+                   :rewrite-sequence (b)
+                   :keep-order (c)))
+
+
+             (usage (:group usage (v e r n)))
+             (usage-u (:group usage (v e r n :unspecified)))
+             (definition (:group definition (v e r n)))
+             (definition-u (:group definition (v e r n :unspecified)))
+             (example (:group example (v e r n)))
+             (example-u (:group example (v e r n :unspecified)))
+             (examples (:group examples (example)))
+             (examples-u (:group examples (example :unspecified)))
+             (sense (:group sense (label pos gloss definition usage examples
+                                   refs)))
+             (sense-u (:group sense (label pos gloss definition usage examples
+                                     refs :unspecified)))
+             (senses (:group senses (sense)))
+             (enses-u (:group senses (sense :unspecified)))
+             (sublem (:group sublem (senses)))
+             (sublem-u (:group sublem (senses :unspecified)))
+             (sublems (:group sublems (sublem)))
+             (sublems-u (:group sublems (sublem :unspecified)))
+             (headers (:group headers (etymology morphology pronounciation)))
+             (headers-u (:group headers (etymology morphology pronounciation
+                                         :unspecified)))
+             (homonym (:group homonym (headers senses sublems)))
+             (homonym-u (:group homonym (headers senses sublems :unspecified)))
+             (homonyms (:group homonyms (homonym)))
+             (homonyms-u (:group homonyms (homonym :unspecified)))
+             ))
+
+         (base-rewrite-rule-set
+           (make-rewrite-rule-set (mapcar #'make-rewrite-rule-factory
+                                          rewrite-rule-descs)))
+
+         (reshape/canon-pass-desc
+           '((entry ;; num fixed args gotten from above data structures
+              ;; NOTE: Specifying the below overrides the generics above just
+              ;; for the individual thing you redefined:
+              ;; :fixed-args (junkish 1)
+
+              ;; If :unspecified is NOT used, all non-kept forms are DROPPED.
+              ;; NOTE: Generate predicates, for :unspecified too. Use sieve to
+              ;; actually filter. order doesn't matter here.
+              :observe (;; NOTE: These are actual group names, NOT names.
+                        lexeme
+                        homonym
+                        homonyms
+                        headers
+                        etymology
+                        morphology
+                        pronounciation
+                        sense
+                        senses
+                        sublem
+                        sublems
+                        ref
+                        refs
+                        ;; This represents :unspecified ONLY IN THIS ENTRY FORM
+                        :unspecified)
+
+              ;; NOTE: These are names, not group-names
+              ;; group rewrites happens in the left-to-right order
+              ;; specified. This allows lifting of sense forms into senses
+              ;; forms if the latter wasn't specified at all and THEN group
+              ;; THOSE into homonym and homonym forms, for example.
+              ;;
+              ;; At the end of this, all individual groups are coalesced into a
+              ;; single group, even if there were several of them.
+              ;;
+              ;; NOTE: You can override a group definition in the
+              ;; :group-definitions section by simply using (:group x (a b c))
+              ;; in the form below in place of a gorup name.
+              ;;
+              ;; NOTE: The override allows :or and :unspecified in the right
+              ;; hand side of the group. If :unspecified is used, it can only
+              ;; be used ONCE in the :groups.
+              :rewrite-sequence (ref refs sense senses sublem sublems
+                                 etymology morphology pronounciation
+                                 headers homonym homonyms)
+
+              ;; These are NOT names. but instead group-names.
+              ;; Then finally, this is the ordering of the resultant groupings.
+              ;; Every form in here must be a root in :groupings. All
+              ;; :groupings group names must be accounted for in here.
+              :keep-order (lexeme
+                           ;; TODO: Support :or forms in here
+                           homonyms
+                           sees
+                           :unspecified))
 
              ;; ----------------------------
-             :reshape-rules
-             ((entry 0
-               ;; NOTE: Specifying the below overrides the generics above just
-               ;; for the individual thing you redefined:
-               ;; :fixed-args (junkish 1)
+             (homonyms
+              ;; specify below if I need to override the defaults
+              ;;:fixed-args ((sublem 1))
+              :observe (homonym
+                        headers
+                        etymology
+                        morphology
+                        pronounciation
+                        sense
+                        senses
+                        sublem
+                        sublems
+                        ref
+                        refs
+                        :unspecified)
+              :rewrite-sequence (ref refs sense senses sublem sublems headers
+                                 homonym)
+              :keep-order (homonym
+                           refss
+                           :unspecified))
 
-               ;; If :unspecified is NOT used, all non-kept forms are DROPPED.
-               ;; NOTE: Generate predicates, for :unspecified too. Use sieve to
-               ;; actually filter. order doesn't matter here.
-               :observe (;; NOTE: These are actual group names, NOT dnames.
-                         lexeme
-                         homonym
-                         homonyms
-                         headers
-                         etymology
-                         morphology
-                         pronounciation
-                         sense
-                         senses
-                         sublem
-                         sublems
-                         ref
-                         refs
-                         ;; This represents :unspecified AT THIS LEVEL of ENTRY
-                         ;; form
-                         :unspecified)
+             ;; ----------------------------
+             (headers
+              :fixed-args nil
+              :observe (etymology
+                        morphology
+                        pronounciation)
+              :rewrite-sequence :todo
+              :keep-order :todo)
 
-               ;; group rewrites happens in the left-to-right order
-               ;; specified. This allows lifting of sense forms into senses
-               ;; forms if the latter wasn't specified at all and THEN group
-               ;; THOSE into homonym and homonym forms, for example.
-               ;;
-               ;; At the end of this, all individual groups are coalesced into a
-               ;; single group, even if there were several of them.
-               ;;
-               ;; NOTE: You can override a group definition in the
-               ;; :group-definitions section by simply using (:group x (a b c))
-               ;; in the form below in place of a gorup name.
-               ;;
-               ;; NOTE: The override allows :or and :unspecified in the right
-               ;; hand side of the group. If :unspecified is used, it can only
-               ;; be used ONCE in the :groups.
-               :rewrite-sequence (refs senses sublems headers homonym
-                                  homonyms)
-
-               ;; Then finally, this is the ordering of the resultant groupings.
-               ;; Every form in here must be a root in :groupings. All
-               ;; :groupings group names must be accounted for in here.
-               :keep-order (lexeme
-                            ;; TODO: Support :or forms in here
-                            homonyms
-                            sees
-                            :unspecified))
-
-              ;; ----------------------------
-              (homonyms 0
-               ;; specify below if I need to override the defaults
-               ;;:fixed-args ((sublem 1))
-               :observe (homonym
-                         headers
-                         etymology
-                         morphology
-                         pronounciation
-                         sense
-                         senses
-                         sublem
-                         sublems
-                         ref
-                         refs
-                         :unspecified)
-               :rewrite-sequence (ref refs sense senses sublem sublems headers
-                                  homonym)
-               :keep-order (homonym
-                            refss
-                            :unspecified))
-
-              ;; ----------------------------
-              (headers 0
-               :fixed-args nil
-               :observe (etymology
-                         morphology
-                         pronounciation)
-               :rewrite-sequence :todo
-               :keep-order :todo)
-
-              )))
-         (passes (list canon-pass))
+             ))
+         (passes (list reshape/canon-pass-desc))
 
          (result nil))
 
     ;; Each pass applied is basically reordering, or subtractive.
     ;; TODO: Add in command renaming, but do I need it?
-    (loop :for pass :in passes
-          :do (setf result (mappass t entry pass nil)))
+    #++ (loop :for pass :in passes
+              :do (setf result (mappass t entry pass nil)))
 
-    result))
+    #++ result
+
+    base-rewrite-rule-set
+
+
+    ))
