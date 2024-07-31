@@ -1,0 +1,48 @@
+;; -*- mode: common-lisp -*-
+
+;; Move this to Colony's repo.
+
+(v:define-bundle v:enable ()
+  ((v:register ((v:collision (v:pre v:default v:post))
+                (v:audio (v:pre v:default v:post))
+                (v:network (v:pre v:default v:post))))
+   v:pre
+   v:default
+   v:post))
+
+;; all possible v:enable bundle behaviors (in order of execution):
+;;
+;; :register
+;; :register :collision
+;; :register :collision :pre
+;; :register :collision :default
+;; :register :collision :post
+;; :register :audio
+;; :register :audio :pre
+;; :register :audio :default
+;; :register :audio :post
+;; :register :network
+;; :register :network :pre
+;; :register :network :default
+;; :register :network :post
+;; :pre
+;; :default
+;; :post
+
+
+(v:define-behavior v:enable (v:register v:collision v:pre) ((self foo))
+  nil)
+
+(defun all-paths (func spec)
+  (let ((current-path nil))
+    (labels ((find-all-paths (func spec)
+               (cond
+                 ((null spec)
+		  nil)
+                 ((symbolp spec)
+		  (push spec current-path)
+		  (funcall func (reverse current-path)))
+                 ((listp spec)
+                  (dolist (node spec)
+                    (find-all-paths func node))))))
+      (find-all-paths func spec))))
